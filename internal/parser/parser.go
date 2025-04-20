@@ -72,10 +72,6 @@ func validateYAML(config Config) error {
 				errMsg = append(errMsg, fmt.Sprintf("Backend %d: Missing name", i+1))
 			}
 
-			if b.Address == "" {
-				errMsg = append(errMsg, fmt.Sprintf("Backend %d: Missing address", i+1))
-			}
-
 			if b.Port < 0 || b.Port > 65535 {
 				errMsg = append(errMsg, fmt.Sprintf("Backend %d: Invalid port %d", i+1, b.Port))
 			}
