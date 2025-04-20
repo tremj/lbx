@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -9,10 +10,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var (
+	ErrNoFilepath    = errors.New("failed to get 'filepath' flag")
+	ErrUnmarshalFail = errors.New("failed to unmarshal file contents")
+)
+
 func retrieveFileContent(cmd *cobra.Command, args []string) (Config, error) {
 	filepath, err := cmd.Flags().GetString("filepath")
 	if err != nil {
-		return Config{}, fmt.Errorf("failed to get 'filepath' flag")
+		return Config{}, ErrNoFilepath
 	}
 
 	fileContent, err := os.ReadFile(filepath)
@@ -22,7 +28,7 @@ func retrieveFileContent(cmd *cobra.Command, args []string) (Config, error) {
 
 	var cfg Config
 	if err = yaml.Unmarshal(fileContent, &cfg); err != nil {
-		return Config{}, fmt.Errorf("failed to unmarshal file contents")
+		return Config{}, ErrUnmarshalFail
 	}
 
 	return cfg, nil

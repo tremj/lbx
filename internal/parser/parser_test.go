@@ -25,7 +25,6 @@ func SetUpTest(fileContent string) (*cobra.Command, []string, *bytes.Buffer, err
 	buf := new(bytes.Buffer)
 	cmd.SetOut(buf)
 	cmd.Flags().StringP("filepath", "f", "", "Path to file")
-
 	cmd.Flags().Set("filepath", tmpFile.Name())
 
 	args := []string{}
@@ -43,6 +42,10 @@ func TestNonYAMLFileContentRetreival(t *testing.T) {
 	_, err = retrieveFileContent(cmd, args)
 	if err == nil {
 		t.Fatalf("Expected error when retrieving file: %v", fmt.Errorf("failed to unmarshal file contents"))
+	}
+
+	if err.Error() != ErrUnmarshalFail.Error() {
+		t.Fatalf("Expected error message: %v\nGot: %v", ErrUnmarshalFail, err)
 	}
 
 	if buf.String() != "" {
