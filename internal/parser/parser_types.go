@@ -22,6 +22,7 @@ type Backend struct {
 	Port    int    `yaml:"port"`
 }
 
+// future feature
 type HealthCheck struct {
 	Path               string `yaml:"path"`
 	Interval           string `yaml:"interval"`
