@@ -9,6 +9,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const baseYAML string = `
+name: my-lb
+description: Testing ts
+
+listeners:
+  - name: my-http
+    protocol: http
+    port: 80
+
+backends:
+  - name: backend1
+    port: 8080
+  - name: backend2
+    port: 8080
+`
+
 func SetUpTest(fileContent string, setupFilepath bool) (*cobra.Command, []string, *bytes.Buffer, string, error) {
 	tmpFile, err := os.CreateTemp("", "test-successful-retrieval-*.yaml")
 	if err != nil {
@@ -22,6 +38,7 @@ func SetUpTest(fileContent string, setupFilepath bool) (*cobra.Command, []string
 
 	cmd := &cobra.Command{}
 	buf := new(bytes.Buffer)
+
 	cmd.SetOut(buf)
 	cmd.Flags().StringP("filepath", "f", "", "Path to file")
 	if setupFilepath {
@@ -51,7 +68,7 @@ func TestNonYAMLFileContentRetreival(t *testing.T) {
 	}
 
 	if buf.String() != "" {
-		t.Errorf("Unexpected output from command")
+		t.Fatalf("Unexpected output from command: %s", buf.String())
 	}
 }
 
@@ -77,7 +94,7 @@ func TestNoFileExists(t *testing.T) {
 	}
 
 	if buf.String() != "" {
-		t.Errorf("Unexpected output from command")
+		t.Fatalf("Unexpected output from command: %s", buf.String())
 	}
 
 }
@@ -100,6 +117,20 @@ func TestNoFilepathFlag(t *testing.T) {
 	}
 
 	if buf.String() != "" {
-		t.Errorf("Unexpected output from command")
+		t.Fatalf("Unexpected output from command: %s", buf.String())
+	}
+}
+
+func TestValidYAML(t *testing.T) {
+	cmd, args, buf, tmpFile, err := SetUpTest(baseYAML, true)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	defer os.Remove(tmpFile)
+
+	Parse(cmd, args)
+
+	if !bytes.Contains(buf.Bytes(), []byte("Valid YAML configuration!!")) {
+		t.Fatalf("Expecting 'Valid YAML configuration!!' message, got: %s", buf.String())
 	}
 }

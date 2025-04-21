@@ -94,14 +94,14 @@ func validateYAML(config Config) error {
 func Parse(cmd *cobra.Command, args []string) {
 	lbConfig, err := retrieveFileContent(cmd, args)
 	if err != nil {
-		fmt.Printf("Error retreiving file content: %v\n", err)
+		fmt.Fprintf(cmd.OutOrStdout(), "Error retreiving file content: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err = validateYAML(lbConfig); err != nil {
-		fmt.Printf("Error(s) parsing YAML:\n%v\n", err)
+		fmt.Fprintf(cmd.OutOrStdout(), "Error(s) parsing YAML:\n%v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Valid YAML configuration!!")
+	fmt.Fprintln(cmd.OutOrStdout(), "Valid YAML configuration!!")
 }
