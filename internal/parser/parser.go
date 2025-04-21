@@ -15,7 +15,7 @@ var (
 	ErrUnmarshalFail  = errors.New("failed to unmarshal file contents")
 )
 
-func retrieveFileContent(cmd *cobra.Command, args []string) (Config, error) {
+func retrieveFileContent(cmd *cobra.Command, _ []string) (Config, error) {
 	filepath, err := cmd.Flags().GetString("filepath")
 	if err != nil || filepath == "" {
 		return Config{}, ErrNoFilepathFlag
@@ -34,7 +34,7 @@ func retrieveFileContent(cmd *cobra.Command, args []string) (Config, error) {
 	return cfg, nil
 }
 
-func validateYAML(config Config) error {
+func validateYAML(config Config) []string {
 	var errMsg []string
 	if config.Name == "" {
 		errMsg = append(errMsg, "missing name of your LB configuration")
@@ -84,24 +84,28 @@ func validateYAML(config Config) error {
 		}
 	}
 
-	if len(errMsg) == 0 {
-		return nil
-	}
-	errMsg[0] = fmt.Sprintf(" - %s", errMsg[0])
-	return fmt.Errorf("%s", strings.Join(errMsg, "\n - "))
+	return errMsg
 }
 
 func Parse(cmd *cobra.Command, args []string) {
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "Error retreiving file content: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err = validateYAML(lbConfig); err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "Error(s) parsing YAML:\n%v\n", err)
+	if err := parse(cmd, args); err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "%v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Fprintln(cmd.OutOrStdout(), "Valid YAML configuration!!")
+}
+
+func parse(cmd *cobra.Command, args []string) error {
+	lbConfig, err := retrieveFileContent(cmd, args)
+	if err != nil {
+		return fmt.Errorf("error retreiving file content: %v", err)
+	}
+
+	if errArr := validateYAML(lbConfig); len(errArr) > 0 {
+		errArr[0] = fmt.Sprintf(" - %s", errArr[0])
+		return fmt.Errorf("error(s) parsing YAML:\n%v", strings.Join(errArr, "\n - "))
+	}
+
+	return nil
 }

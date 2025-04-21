@@ -9,22 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const baseYAML string = `
-name: my-lb
-description: Testing ts
-
-listeners:
-  - name: my-http
-    protocol: http
-    port: 80
-
-backends:
-  - name: backend1
-    port: 8080
-  - name: backend2
-    port: 8080
-`
-
 func SetUpTest(fileContent string, setupFilepath bool) (*cobra.Command, []string, *bytes.Buffer, string, error) {
 	tmpFile, err := os.CreateTemp("", "test-successful-retrieval-*.yaml")
 	if err != nil {
@@ -122,7 +106,22 @@ func TestNoFilepathFlag(t *testing.T) {
 }
 
 func TestValidYAML(t *testing.T) {
-	cmd, args, buf, tmpFile, err := SetUpTest(baseYAML, true)
+	config := `
+name: my-lb
+description: Testing ts
+
+listeners:
+  - name: my-http
+    protocol: http
+    port: 80
+
+backends:
+  - name: backend1
+    port: 8080
+  - name: backend2
+    port: 8080
+`
+	cmd, args, buf, tmpFile, err := SetUpTest(config, true)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -132,5 +131,112 @@ func TestValidYAML(t *testing.T) {
 
 	if !bytes.Contains(buf.Bytes(), []byte("Valid YAML configuration!!")) {
 		t.Fatalf("Expecting 'Valid YAML configuration!!' message, got: %s", buf.String())
+	}
+}
+
+func TestMissingNameDescription(t *testing.T) {
+	config := `
+listeners:
+  - name: my-http
+    protocol: http
+    port: 80
+
+backends:
+  - name: backend1
+    port: 8080
+  - name: backend2
+    port: 8080
+`
+	cmd, args, _, tmpFile, err := SetUpTest(config, true)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	defer os.Remove(tmpFile)
+
+	lbConfig, err := retrieveFileContent(cmd, args)
+	if err != nil {
+		t.Fatalf("Error retreiving file content: %v", err)
+	}
+
+	msgArr := validateYAML(lbConfig)
+	expectedMsg := []string{"missing name of your LB configuration", "missing description of your LB configuration"}
+	if len(msgArr) != len(expectedMsg) {
+		t.Fatalf("Expected %d errors, got %d errors", len(expectedMsg), len(msgArr))
+	}
+
+	for i := range expectedMsg {
+		if msgArr[i] != expectedMsg[i] {
+			t.Fatalf("Expected '%s'\nGot '%s'", expectedMsg[i], msgArr[i])
+		}
+	}
+}
+
+func TestMissingListener(t *testing.T) {
+	config := `
+name: my-lb
+description: Testing ts
+
+backends:
+  - name: backend1
+    port: 8080
+  - name: backend2
+    port: 8080
+`
+	cmd, args, _, tmpFile, err := SetUpTest(config, true)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	defer os.Remove(tmpFile)
+
+	lbConfig, err := retrieveFileContent(cmd, args)
+	if err != nil {
+		t.Fatalf("Error retreiving file content: %v", err)
+	}
+
+	msgArr := validateYAML(lbConfig)
+	expectedMsg := "missing or empty listener config"
+
+	if len(msgArr) != 1 {
+		t.Fatalf("Expected 1 error, got %d errors", len(msgArr))
+	}
+
+	if expectedMsg != msgArr[0] {
+		t.Fatalf("Expected '%s'\nGot '%s'", expectedMsg, msgArr[0])
+	}
+}
+
+func TestEmptyListener(t *testing.T) {
+	config := `
+name: my-lb
+description: Testing ts
+
+listeners:
+
+backends:
+  - name: backend1
+    port: 8080
+  - name: backend2
+    port: 8080
+`
+	cmd, args, _, tmpFile, err := SetUpTest(config, true)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	defer os.Remove(tmpFile)
+
+	lbConfig, err := retrieveFileContent(cmd, args)
+	if err != nil {
+		t.Fatalf("Error retreiving file content: %v", err)
+	}
+
+	msgArr := validateYAML(lbConfig)
+	expectedMsg := "missing or empty listener config"
+
+	if len(msgArr) != 1 {
+		t.Fatalf("Expected 1 error, got %d errors", len(msgArr))
+	}
+
+	if expectedMsg != msgArr[0] {
+		t.Fatalf("Expected '%s'\nGot '%s'", expectedMsg, msgArr[0])
 	}
 }
