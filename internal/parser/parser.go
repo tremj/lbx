@@ -11,14 +11,14 @@ import (
 )
 
 var (
-	ErrNoFilepath    = errors.New("failed to get 'filepath' flag")
-	ErrUnmarshalFail = errors.New("failed to unmarshal file contents")
+	ErrNoFilepathFlag = errors.New("failed to get 'filepath' flag")
+	ErrUnmarshalFail  = errors.New("failed to unmarshal file contents")
 )
 
 func retrieveFileContent(cmd *cobra.Command, args []string) (Config, error) {
 	filepath, err := cmd.Flags().GetString("filepath")
-	if err != nil {
-		return Config{}, ErrNoFilepath
+	if err != nil || filepath == "" {
+		return Config{}, ErrNoFilepathFlag
 	}
 
 	fileContent, err := os.ReadFile(filepath)
@@ -44,7 +44,7 @@ func validateYAML(config Config) error {
 		errMsg = append(errMsg, "missing description of your LB configuration")
 	}
 
-	if config.Listeners == nil || len(config.Listeners) == 0 {
+	if len(config.Listeners) == 0 {
 		errMsg = append(errMsg, "missing or empty listener config")
 	} else {
 		for i, l := range config.Listeners {
@@ -55,7 +55,7 @@ func validateYAML(config Config) error {
 			if l.Protocol == "" {
 				errMsg = append(errMsg, fmt.Sprintf("listener %d: Missing protocol", i+1))
 			} else if l.Protocol != "http" && l.Protocol != "https" {
-				errMsg = append(errMsg, fmt.Sprintf("listener %d: Invalid protocl %s", i+1, l.Protocol))
+				errMsg = append(errMsg, fmt.Sprintf("listener %d: Invalid protocol %s", i+1, l.Protocol))
 			}
 
 			if l.Port == 0 {
@@ -70,7 +70,7 @@ func validateYAML(config Config) error {
 		}
 	}
 
-	if config.Backends == nil || len(config.Backends) == 0 {
+	if len(config.Backends) == 0 {
 		errMsg = append(errMsg, "missing or empty backend config")
 	} else {
 		for i, b := range config.Backends {
@@ -88,7 +88,7 @@ func validateYAML(config Config) error {
 		return nil
 	}
 	errMsg[0] = fmt.Sprintf(" - %s", errMsg[0])
-	return fmt.Errorf(strings.Join(errMsg, "\n - "))
+	return fmt.Errorf("%s", strings.Join(errMsg, "\n - "))
 }
 
 func Parse(cmd *cobra.Command, args []string) {
