@@ -17,9 +17,8 @@ type Listener struct {
 }
 
 type Backend struct {
-	Name    string `yaml:"name"`
-	Address string `yaml:"address"`
-	Port    int    `yaml:"port"`
+	Name string `yaml:"name"`
+	Port int    `yaml:"port"`
 }
 
 // future feature

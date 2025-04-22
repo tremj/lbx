@@ -9,12 +9,12 @@ import (
 )
 
 func main() {
-	var rootCmd = &cobra.Command{
+	rootCmd := &cobra.Command{
 		Use:   "lbx",
 		Short: "Central command for all functionalities within the load balancer",
 	}
 
-	var parseCmd = &cobra.Command{
+	parseCmd := &cobra.Command{
 		Use:   "parse",
 		Short: "Parse YAML configuration files",
 		Run:   parser.Parse,

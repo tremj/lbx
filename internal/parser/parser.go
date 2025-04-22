@@ -12,7 +12,6 @@ import (
 
 var (
 	ErrNoFilepathFlag = errors.New("failed to get 'filepath' flag")
-	ErrUnmarshalFail  = errors.New("failed to unmarshal file contents")
 )
 
 func retrieveFileContent(cmd *cobra.Command, _ []string) (Config, error) {
@@ -27,8 +26,10 @@ func retrieveFileContent(cmd *cobra.Command, _ []string) (Config, error) {
 	}
 
 	var cfg Config
-	if err = yaml.Unmarshal(fileContent, &cfg); err != nil {
-		return Config{}, ErrUnmarshalFail
+	decoder := yaml.NewDecoder(strings.NewReader(string(fileContent)))
+	decoder.KnownFields(true)
+	if err = decoder.Decode(&cfg); err != nil {
+		return Config{}, err
 	}
 
 	return cfg, nil
@@ -55,7 +56,7 @@ func validateYAML(config Config) []string {
 			if l.Protocol == "" {
 				errMsg = append(errMsg, fmt.Sprintf("listener %d: Missing protocol", i+1))
 			} else if l.Protocol != "http" && l.Protocol != "https" {
-				errMsg = append(errMsg, fmt.Sprintf("listener %d: Invalid protocol %s", i+1, l.Protocol))
+				errMsg = append(errMsg, fmt.Sprintf("listener %d: Invalid protocol \"%s\"", i+1, l.Protocol))
 			}
 
 			if l.Port == 0 {
@@ -78,7 +79,9 @@ func validateYAML(config Config) []string {
 				errMsg = append(errMsg, fmt.Sprintf("backend %d: Missing name", i+1))
 			}
 
-			if b.Port < 0 || b.Port > 65535 {
+			if b.Port == 0 {
+				errMsg = append(errMsg, fmt.Sprintf("backend %d: Missing port", i+1))
+			} else if b.Port < 1 || b.Port > 65535 {
 				errMsg = append(errMsg, fmt.Sprintf("backend %d: Invalid port %d", i+1, b.Port))
 			}
 		}
