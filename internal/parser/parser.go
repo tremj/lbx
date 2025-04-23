@@ -90,25 +90,25 @@ func validateYAML(config Config) []string {
 	return errMsg
 }
 
+func RetrieveAndValidate(cmd *cobra.Command, args []string) (Config, error) {
+	lbConfig, err := retrieveFileContent(cmd, args)
+	if err != nil {
+		return Config{}, fmt.Errorf("error retreiving file content: %v", err)
+	}
+
+	if errArr := validateYAML(lbConfig); len(errArr) > 0 {
+		errArr[0] = fmt.Sprintf(" - %s", errArr[0])
+		return Config{}, fmt.Errorf("error(s) parsing YAML:\n%v", strings.Join(errArr, "\n - "))
+	}
+
+	return lbConfig, nil
+}
+
 func Parse(cmd *cobra.Command, args []string) {
-	if err := parse(cmd, args); err != nil {
+	if _, err := RetrieveAndValidate(cmd, args); err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "%v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Fprintln(cmd.OutOrStdout(), "Valid YAML configuration!!")
-}
-
-func parse(cmd *cobra.Command, args []string) error {
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		return fmt.Errorf("error retreiving file content: %v", err)
-	}
-
-	if errArr := validateYAML(lbConfig); len(errArr) > 0 {
-		errArr[0] = fmt.Sprintf(" - %s", errArr[0])
-		return fmt.Errorf("error(s) parsing YAML:\n%v", strings.Join(errArr, "\n - "))
-	}
-
-	return nil
 }
