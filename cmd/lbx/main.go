@@ -40,6 +40,14 @@ func main() {
 	saveCmd.Flags().StringP("name", "n", "", "Name of the load balancer configuration")
 	rootCmd.AddCommand(saveCmd)
 
+	deleteCmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete load balancer configuration",
+		Run:   store.Delete,
+	}
+	deleteCmd.Flags().StringP("name", "n", "", "Name of the load balancer configuration")
+	rootCmd.AddCommand(deleteCmd)
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

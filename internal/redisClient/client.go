@@ -28,3 +28,7 @@ func (c *RedisClient) Set(key, value string) error {
 func (c *RedisClient) Get(key string) (string, error) {
 	return c.rc.Get(ctx, key).Result()
 }
+
+func (c *RedisClient) Del(key string) error {
+	return c.rc.Del(ctx, key).Err()
+}
