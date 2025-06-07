@@ -3,40 +3,22 @@ package parser
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
+	"github.com/tremj/lbx/internal/types"
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	ErrNoFilepathFlag = errors.New("failed to get 'filepath' flag")
-)
-
-func retrieveFileContent(cmd *cobra.Command, _ []string) (Config, error) {
-	filepath, err := cmd.Flags().GetString("filepath")
-	if err != nil || filepath == "" {
-		return Config{}, ErrNoFilepathFlag
-	}
-
-	fileContent, err := os.ReadFile(filepath)
-	if err != nil {
-		return Config{}, fmt.Errorf("failed to read file: %s", filepath)
-	}
-
-	var cfg Config
-	decoder := yaml.NewDecoder(strings.NewReader(string(fileContent)))
-	decoder.KnownFields(true)
-	if err = decoder.Decode(&cfg); err != nil {
-		return Config{}, err
-	}
-
-	return cfg, nil
-}
-
-func validateYAML(config Config) []string {
+func ValidateConfig(data []byte) error {
 	var errMsg []string
+	var config types.Config
+
+	decoder := yaml.NewDecoder(strings.NewReader(string(data)))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&config); err != nil {
+		errMsg = append(errMsg, err.Error())
+	}
+
 	if config.Name == "" {
 		errMsg = append(errMsg, "missing name of your LB configuration")
 	}
@@ -87,28 +69,9 @@ func validateYAML(config Config) []string {
 		}
 	}
 
-	return errMsg
+	return concatErrorMessages(errMsg)
 }
 
-func Parse(cmd *cobra.Command, args []string) {
-	if err := parse(cmd, args); err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "%v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Fprintln(cmd.OutOrStdout(), "Valid YAML configuration!!")
-}
-
-func parse(cmd *cobra.Command, args []string) error {
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		return fmt.Errorf("error retreiving file content: %v", err)
-	}
-
-	if errArr := validateYAML(lbConfig); len(errArr) > 0 {
-		errArr[0] = fmt.Sprintf(" - %s", errArr[0])
-		return fmt.Errorf("error(s) parsing YAML:\n%v", strings.Join(errArr, "\n - "))
-	}
-
-	return nil
+func concatErrorMessages(messages []string) error {
+	return errors.New(strings.Join(messages, "\n"))
 }

@@ -1,4 +1,4 @@
-package parser
+package types
 
 type Config struct {
 	Name        string      `yaml:"name"`
