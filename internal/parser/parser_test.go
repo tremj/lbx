@@ -86,7 +86,7 @@ backends:
     port: 8080
 `)
 	err := ValidateConfig(config)
-	expectedSection := "field hello not found in type types.Config"
+	expectedSection := "missing or empty listener config"
 	if !strings.Contains(err.Error(), expectedSection) {
 		t.Fatalf("Unexpected error: %v", err)
 	}

@@ -73,5 +73,8 @@ func ValidateConfig(data []byte) error {
 }
 
 func concatErrorMessages(messages []string) error {
+	if len(messages) == 0 {
+		return nil
+	}
 	return errors.New(strings.Join(messages, "\n"))
 }
