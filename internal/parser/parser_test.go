@@ -1,91 +1,12 @@
 package parser
 
 import (
-	"bytes"
-	"fmt"
-	"os"
 	"strings"
 	"testing"
-
-	"github.com/spf13/cobra"
 )
 
-func SetUpTest(fileContent string, setupFilepath bool) (*cobra.Command, []string, *bytes.Buffer, string, error) {
-	tmpFile, err := os.CreateTemp("", "test-successful-retrieval-*.yaml")
-	if err != nil {
-		return nil, nil, nil, "", fmt.Errorf("failed to create tmp file: %v", err)
-	}
-
-	if _, err = tmpFile.WriteString(fileContent); err != nil {
-		return nil, nil, nil, "", fmt.Errorf("failed to create dummy file content to tmp file")
-	}
-	tmpFile.Close()
-
-	cmd := &cobra.Command{}
-	buf := new(bytes.Buffer)
-
-	cmd.SetOut(buf)
-	cmd.Flags().StringP("filepath", "f", "", "Path to file")
-	if setupFilepath {
-		cmd.Flags().Set("filepath", tmpFile.Name())
-	}
-
-	args := []string{}
-
-	return cmd, args, buf, tmpFile.Name(), nil
-}
-
-func TestNoFileExists(t *testing.T) {
-	fileContent := `g2`
-	cmd, args, buf, tmpFile, err := SetUpTest(fileContent, true)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	err = os.Remove(tmpFile) // remove file before running command
-	if err != nil {
-		t.Fatalf("Error removing file: %v", err)
-	}
-
-	expectedMsg := fmt.Sprintf("failed to read file: %s", tmpFile)
-	_, err = retrieveFileContent(cmd, args)
-	if err == nil {
-		t.Fatalf("Expected error when retrieving file: %s", expectedMsg)
-	}
-
-	if err.Error() != expectedMsg {
-		t.Fatalf("Expected error message: %s\nGot: %v", expectedMsg, err)
-	}
-
-	if buf.String() != "" {
-		t.Fatalf("Unexpected output from command: %s", buf.String())
-	}
-
-}
-
-func TestNoFilepathFlag(t *testing.T) {
-	fileContent := `yogurt`
-	cmd, args, buf, tmpFile, err := SetUpTest(fileContent, false)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	_, err = retrieveFileContent(cmd, args)
-	if err == nil {
-		t.Fatalf("Expected error when retreiving file: %v", ErrNoFilepathFlag)
-	}
-
-	if err.Error() != ErrNoFilepathFlag.Error() {
-		t.Fatalf("Expected error message: %v\nGot: %v", ErrNoFilepathFlag, err)
-	}
-
-	if buf.String() != "" {
-		t.Fatalf("Unexpected output from command: %s", buf.String())
-	}
-}
-
 func TestValidYAML(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -99,22 +20,15 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, buf, tmpFile, err := SetUpTest(config, true)
+`)
+	err := ValidateConfig(config)
 	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	Parse(cmd, args)
-
-	if !bytes.Contains(buf.Bytes(), []byte("Valid YAML configuration!!")) {
-		t.Fatalf("Expecting 'Valid YAML configuration!!' message, got: %s", buf.String())
+		t.Fatalf("Expected 0 errors, got %v", err)
 	}
 }
 
 func TestUnknownYAMLField(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -130,22 +44,16 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	_, err = retrieveFileContent(cmd, args)
-	expectedSection := "field hello not found in type parser.Config"
+`)
+	err := ValidateConfig(config)
+	expectedSection := "field hello not found in type types.Config"
 	if !strings.Contains(err.Error(), expectedSection) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 }
 
 func TestMissingNameDescription(t *testing.T) {
-	config := `
+	config := []byte(`
 listeners:
   - name: my-http
     protocol: http
@@ -156,33 +64,18 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"missing name of your LB configuration", "missing description of your LB configuration"}
-	if len(msgArr) != len(expectedMsg) {
-		t.Fatalf("Expected %d errors, got %d errors", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if msgArr[i] != expectedMsg[i] {
-			t.Fatalf("Expected '%s'\nGot '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestMissingListener(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -191,32 +84,16 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
+`)
+	err := ValidateConfig(config)
+	expectedSection := "field hello not found in type types.Config"
+	if !strings.Contains(err.Error(), expectedSection) {
 		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
-	expectedMsg := "missing or empty listener config"
-
-	if len(msgArr) != 1 {
-		t.Fatalf("Expected 1 error, got %d errors", len(msgArr))
-	}
-
-	if expectedMsg != msgArr[0] {
-		t.Fatalf("Expected '%s'\nGot '%s'", expectedMsg, msgArr[0])
 	}
 }
 
 func TestEmptyListener(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -227,34 +104,18 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"missing or empty listener config"}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestListenerMissingNamePort(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -266,34 +127,18 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Error retrieving file content: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"listener 1: Missing name", "listener 1: Missing port number"}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestListenerMissingProtocol(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -306,34 +151,18 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Error retrieving file content: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"listener 1: Missing protocol"}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestListenerWrongHTTPPort(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -347,34 +176,18 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Error retrieving file content: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"listener 1: Invalid port 81 for protocol \"http\""}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestListenerWrongHTTPSPortAndMissingTLS(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -388,34 +201,18 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Error retrieving file content: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"listener 1: Invalid port 81 for protocol \"https\"", "listener 1: Missing certificate information"}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestListenerInvalidProtocol(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -429,35 +226,18 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Error retrieving file content: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"listener 1: Invalid protocol \"ssh\""}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestListenerValidTLS(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -473,35 +253,15 @@ backends:
     port: 8080
   - name: backend2
     port: 8080
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
+`)
+	err := ValidateConfig(config)
 	if err != nil {
-		t.Fatalf("Error retrieving file content: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
-	expectedMsg := []string{}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
-		}
+		t.Fatalf("Expected 0 errors, got %v", err)
 	}
 }
 
 func TestMissingBackend(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -509,34 +269,18 @@ listeners:
   - name: my-http
     protocol: http
     port: 80
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"missing or empty backend config"}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestEmptyBackend(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -546,34 +290,18 @@ listeners:
     port: 80
 
 backends:
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"missing or empty backend config"}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestBackendMissingNamePort(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -585,34 +313,18 @@ listeners:
 backends:
   - port: 8080
   - name: backend2
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"backend 1: Missing name", "backend 2: Missing port"}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
 
 func TestBackendInvalidPort(t *testing.T) {
-	config := `
+	config := []byte(`
 name: my-lb
 description: Testing ts
 
@@ -624,28 +336,12 @@ listeners:
 backends:
   - name: backend9
     port: 100000
-`
-	cmd, args, _, tmpFile, err := SetUpTest(config, true)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	defer os.Remove(tmpFile)
-
-	lbConfig, err := retrieveFileContent(cmd, args)
-	if err != nil {
-		t.Fatalf("Error retreiving file content: %v", err)
-	}
-
-	msgArr := validateYAML(lbConfig)
+`)
+	err := ValidateConfig(config)
 	expectedMsg := []string{"backend 1: Invalid port 100000"}
-
-	if len(expectedMsg) != len(msgArr) {
-		t.Fatalf("Expected %d errors, got %d", len(expectedMsg), len(msgArr))
-	}
-
-	for i := range expectedMsg {
-		if expectedMsg[i] != msgArr[i] {
-			t.Fatalf("Expected '%s'\nGot: '%s'", expectedMsg[i], msgArr[i])
+	for _, msg := range expectedMsg {
+		if !strings.Contains(err.Error(), msg) {
+			t.Fatalf("Did not find %s in: \n%v", msg, err)
 		}
 	}
 }
