@@ -19,8 +19,8 @@ func InitRedis() {
 	})
 }
 
-func Get(ctx context.Context, name string) []byte {
-	return []byte(redisClient.Get(ctx, name).Val())
+func Get(ctx context.Context, name string) (string, error) {
+	return redisClient.Get(ctx, name).Result()
 }
 
 func SaveConfig(ctx context.Context, name string, data []byte) error {
@@ -29,4 +29,8 @@ func SaveConfig(ctx context.Context, name string, data []byte) error {
 
 func DeleteConfig(ctx context.Context, name string) error {
 	return redisClient.Del(ctx, name).Err()
+}
+
+func GetKeys(ctx context.Context) ([]string, error) {
+	return redisClient.Keys(ctx, "*").Result()
 }
