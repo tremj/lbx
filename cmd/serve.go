@@ -7,7 +7,7 @@ import (
 )
 
 var serveCmd = &cobra.Command{
-	Use:   "serve",
+	Use:   "api",
 	Short: "Run the API server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		storage.InitRedis()

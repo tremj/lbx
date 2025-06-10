@@ -25,8 +25,10 @@ func RetrieveSaveCmdInfo(cmd *cobra.Command) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("error getting name flag: %v", err)
 	}
 
-	val := storage.Get(cmd.Context(), configName)
+	val, err := storage.Get(cmd.Context(), configName)
 	if len(val) == 0 {
+		return nil, "", fmt.Errorf("did not find config for key: %s", configName)
+	} else if err != nil {
 		return nil, "", err
 	}
 
@@ -39,8 +41,10 @@ func RetrieveDeleteCmdInfo(cmd *cobra.Command) (string, error) {
 		return "", fmt.Errorf("error getting name flag: %v", err)
 	}
 
-	val := storage.Get(cmd.Context(), configName)
+	val, err := storage.Get(cmd.Context(), configName)
 	if len(val) == 0 {
+		return "", fmt.Errorf("did not find config for key: %s", configName)
+	} else if err != nil {
 		return "", err
 	}
 
